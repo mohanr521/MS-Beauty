@@ -20,6 +20,7 @@ import {
   toIsoDateString,
   validateBookingInput,
 } from '../utils/bookingRules.ts';
+import { formatUserFacingError } from '../utils/firestoreErrors.ts';
 import {
   createFirestoreAppointment,
   ensureCatalogSeeded,
@@ -111,7 +112,7 @@ export function BookingSection({
         setSlotsLoading(false);
       },
       (err) => {
-        setSlotsError(err.message);
+        setSlotsError(formatUserFacingError(err, 'Unable to check studio slot availability.'));
         setSlotsLoading(false);
       }
     );
@@ -188,7 +189,7 @@ export function BookingSection({
       setConfirmedAppointment(appointment);
       onAppointmentCreated(appointment);
     } catch (err: unknown) {
-      setSubmitError(err instanceof Error ? err.message : 'Booking submission failed.');
+      setSubmitError(formatUserFacingError(err, 'Booking submission failed. Please try again.'));
     } finally {
       setSubmitting(false);
     }

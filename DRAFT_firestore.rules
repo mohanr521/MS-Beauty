@@ -29,7 +29,7 @@ service cloud.firestore {
     }
 
     function isBootstrapAdmin() {
-      return isVerifiedUser() && request.auth.token.email == 'mohanrmohan717@gmail.com';
+      return isVerifiedUser() && request.auth.token.email.lower() == 'mohanrmohan717@gmail.com';
     }
 
     function isAdmin() {
@@ -40,6 +40,26 @@ service cloud.firestore {
 
     function isValidCategory(cat) {
       return cat in ['Facial & Skin', 'Bridal & Makeup', 'Hair & Scalp', 'Nail & Spa'];
+    }
+
+    function isCanonicalServiceId(serviceId) {
+      return serviceId in [
+        'botanical-hydra-sculpt-facial',
+        'bridal-radiance-artistry',
+        'silk-cedarwood-scalp-ritual',
+        'eucalyptus-hand-nail-spa',
+        'keratin-lash-brow-sculpt',
+        'private-suite-barrier-renewal'
+      ];
+    }
+
+    function isCanonicalSpecialistId(specialistId) {
+      return specialistId in [
+        'elena-vance',
+        'priya-nair',
+        'camille-laurent',
+        'sora-takahashi'
+      ];
     }
 
     function slotKey(data) {
@@ -189,8 +209,8 @@ service cloud.firestore {
         incoming().status == 'confirmed' &&
         incoming().createdAt == request.time &&
         incoming().updatedAt == request.time &&
-        exists(/databases/$(database)/documents/services/$(incoming().serviceId)) &&
-        exists(/databases/$(database)/documents/specialists/$(incoming().specialistId)) &&
+        (isCanonicalServiceId(incoming().serviceId) || exists(/databases/$(database)/documents/services/$(incoming().serviceId))) &&
+        (isCanonicalSpecialistId(incoming().specialistId) || exists(/databases/$(database)/documents/specialists/$(incoming().specialistId))) &&
         existsAfter(/databases/$(database)/documents/booked_slots/$(slotKey(incoming())));
 
       allow update: if isVerifiedUser() &&
@@ -224,7 +244,7 @@ service cloud.firestore {
               'specialistNumericId', 'specialistName', 'specialistRole',
               'notes', 'updatedAt'
             ]) &&
-            exists(/databases/$(database)/documents/specialists/$(incoming().specialistId)) &&
+            (isCanonicalSpecialistId(incoming().specialistId) || exists(/databases/$(database)/documents/specialists/$(incoming().specialistId))) &&
             existsAfter(/databases/$(database)/documents/booked_slots/$(slotKey(incoming())))
           ) ||
           (

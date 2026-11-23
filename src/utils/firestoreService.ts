@@ -27,61 +27,73 @@ function timestampToIso(ts: unknown): string {
   return new Date().toISOString();
 }
 
+let seedingPromise: Promise<void> | null = null;
+
 export async function ensureCatalogSeeded(userEmail: string | null | undefined): Promise<void> {
   if (!userEmail || userEmail.toLowerCase() !== ADMIN_EMAIL.toLowerCase()) {
     return;
   }
 
-  try {
-    const [svcSnap, spSnap] = await Promise.all([
-      getDocs(collection(db, 'services')),
-      getDocs(collection(db, 'specialists')),
-    ]);
-
-    if (!svcSnap.empty && !spSnap.empty) {
-      return;
-    }
-
-    const batch = writeBatch(db);
-
-    if (svcSnap.empty) {
-      for (const svc of SEED_SERVICES) {
-        const ref = doc(db, 'services', svc.docId ?? svc.slug);
-        batch.set(ref, {
-          id: svc.id,
-          slug: svc.slug,
-          name: svc.name,
-          category: svc.category,
-          durationMinutes: svc.durationMinutes,
-          priceUsd: svc.priceUsd,
-          shortDescription: svc.shortDescription,
-          fullDescription: svc.fullDescription,
-          ritualSteps: svc.ritualSteps,
-          botanicals: svc.botanicals,
-          imageUrl: svc.imageUrl,
-          featured: svc.featured,
-        });
-      }
-    }
-
-    if (spSnap.empty) {
-      for (const sp of SEED_SPECIALISTS) {
-        const ref = doc(db, 'specialists', sp.docId ?? `specialist-${sp.id}`);
-        batch.set(ref, {
-          id: sp.id,
-          name: sp.name,
-          role: sp.role,
-          specialty: sp.specialty,
-          experienceYears: sp.experienceYears,
-          bio: sp.bio,
-        });
-      }
-    }
-
-    await batch.commit();
-  } catch (error) {
-    handleFirestoreError(error, OperationType.WRITE, 'services');
+  if (seedingPromise) {
+    return seedingPromise;
   }
+
+  seedingPromise = (async () => {
+    try {
+      const [svcSnap, spSnap] = await Promise.all([
+        getDocs(collection(db, 'services')),
+        getDocs(collection(db, 'specialists')),
+      ]);
+
+      if (!svcSnap.empty && !spSnap.empty) {
+        return;
+      }
+
+      const batch = writeBatch(db);
+
+      if (svcSnap.empty) {
+        for (const svc of SEED_SERVICES) {
+          const ref = doc(db, 'services', svc.docId ?? svc.slug);
+          batch.set(ref, {
+            id: svc.id,
+            slug: svc.slug,
+            name: svc.name,
+            category: svc.category,
+            durationMinutes: svc.durationMinutes,
+            priceUsd: svc.priceUsd,
+            shortDescription: svc.shortDescription,
+            fullDescription: svc.fullDescription,
+            ritualSteps: svc.ritualSteps,
+            botanicals: svc.botanicals,
+            imageUrl: svc.imageUrl,
+            featured: svc.featured,
+          });
+        }
+      }
+
+      if (spSnap.empty) {
+        for (const sp of SEED_SPECIALISTS) {
+          const ref = doc(db, 'specialists', sp.docId ?? `specialist-${sp.id}`);
+          batch.set(ref, {
+            id: sp.id,
+            name: sp.name,
+            role: sp.role,
+            specialty: sp.specialty,
+            experienceYears: sp.experienceYears,
+            bio: sp.bio,
+          });
+        }
+      }
+
+      await batch.commit();
+    } catch (error) {
+      handleFirestoreError(error, OperationType.WRITE, 'services');
+    } finally {
+      seedingPromise = null;
+    }
+  })();
+
+  return seedingPromise;
 }
 
 export function subscribeServices(
@@ -414,9 +426,14 @@ export async function rescheduleFirestoreAppointment(params: {
   );
   const newSlotId = buildSlotKey(newSpecialistDocId, params.newDate, params.newTime);
 
+  let oldSlotExists = false;
   if (oldSlotId !== newSlotId) {
     try {
-      const targetSlot = await getDoc(doc(db, 'booked_slots', newSlotId));
+      const [oldSlotSnap, targetSlot] = await Promise.all([
+        getDoc(doc(db, 'booked_slots', oldSlotId)),
+        getDoc(doc(db, 'booked_slots', newSlotId)),
+      ]);
+      oldSlotExists = oldSlotSnap.exists();
       if (targetSlot.exists()) {
         throw new Error('SLOT_UNAVAILABLE');
       }
@@ -432,7 +449,9 @@ export async function rescheduleFirestoreAppointment(params: {
   const apptRef = doc(db, 'appointments', apptDocId);
 
   if (oldSlotId !== newSlotId) {
-    batch.delete(doc(db, 'booked_slots', oldSlotId));
+    if (oldSlotExists) {
+      batch.delete(doc(db, 'booked_slots', oldSlotId));
+    }
     batch.set(doc(db, 'booked_slots', newSlotId), {
       specialistId: newSpecialistDocId,
       specialistNumericId: params.specialist.id,
@@ -475,12 +494,23 @@ export async function cancelFirestoreAppointment(appointment: Appointment): Prom
     appointment.appointmentTime
   );
 
+  const slotRef = doc(db, 'booked_slots', slotId);
+  let slotExists = false;
+  try {
+    const slotSnap = await getDoc(slotRef);
+    slotExists = slotSnap.exists();
+  } catch (error) {
+    handleFirestoreError(error, OperationType.GET, `booked_slots/${slotId}`);
+  }
+
   const batch = writeBatch(db);
   batch.update(doc(db, 'appointments', apptDocId), {
     status: 'cancelled',
     updatedAt: serverTimestamp(),
   });
-  batch.delete(doc(db, 'booked_slots', slotId));
+  if (slotExists) {
+    batch.delete(slotRef);
+  }
 
   try {
     await batch.commit();
@@ -502,14 +532,25 @@ export async function updateAppointmentStatusByAdmin(
     appointment.appointmentTime
   );
 
+  const slotRef = doc(db, 'booked_slots', slotId);
+  let slotExists = false;
+  if (status === 'cancelled' || status === 'completed') {
+    try {
+      const slotSnap = await getDoc(slotRef);
+      slotExists = slotSnap.exists();
+    } catch (error) {
+      handleFirestoreError(error, OperationType.GET, `booked_slots/${slotId}`);
+    }
+  }
+
   const batch = writeBatch(db);
   batch.update(doc(db, 'appointments', apptDocId), {
     status,
     updatedAt: serverTimestamp(),
   });
 
-  if (status === 'cancelled' || status === 'completed') {
-    batch.delete(doc(db, 'booked_slots', slotId));
+  if ((status === 'cancelled' || status === 'completed') && slotExists) {
+    batch.delete(slotRef);
   }
 
   try {

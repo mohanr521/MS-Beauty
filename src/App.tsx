@@ -11,6 +11,7 @@ import { ServicesGallery } from './components/ServicesGallery.tsx';
 import { SpecialistsPage } from './components/SpecialistsPage.tsx';
 import { ADMIN_EMAIL, auth, googleProvider, testConnection } from './firebase.ts';
 import type { Appointment, ServiceItem, Specialist } from './types/parlour.ts';
+import { formatUserFacingError } from './utils/firestoreErrors.ts';
 import {
   ensureCatalogSeeded,
   subscribeServices,
@@ -69,7 +70,9 @@ export default function App() {
       setUser(nextUser);
       setAuthReady(true);
       if (nextUser?.email?.toLowerCase() === ADMIN_EMAIL.toLowerCase()) {
-        void ensureCatalogSeeded(nextUser.email);
+        ensureCatalogSeeded(nextUser.email).catch((err) => {
+          console.error('Catalog sync warning:', err);
+        });
       }
     });
     return () => unsub();
@@ -101,7 +104,7 @@ export default function App() {
         markReady();
       },
       (err) => {
-        setLoadError(err.message);
+        setLoadError(formatUserFacingError(err, 'Unable to load beauty services right now.'));
         setLoading(false);
       }
     );
@@ -118,7 +121,7 @@ export default function App() {
         markReady();
       },
       (err) => {
-        setLoadError(err.message);
+        setLoadError(formatUserFacingError(err, 'Unable to load studio specialists right now.'));
         setLoading(false);
       }
     );
@@ -139,12 +142,12 @@ export default function App() {
     try {
       const credential = await signInWithPopup(auth, googleProvider);
       if (credential.user.email?.toLowerCase() === ADMIN_EMAIL.toLowerCase()) {
-        await ensureCatalogSeeded(credential.user.email);
+        await ensureCatalogSeeded(credential.user.email).catch((err) => {
+          console.error('Catalog sync warning:', err);
+        });
       }
     } catch (error) {
-      setAuthError(
-        error instanceof Error ? error.message : 'Unable to sign in with Google right now.'
-      );
+      setAuthError(formatUserFacingError(error, 'Unable to sign in with Google right now.'));
     }
   }
 
@@ -153,7 +156,7 @@ export default function App() {
     try {
       await signOut(auth);
     } catch (error) {
-      setAuthError(error instanceof Error ? error.message : 'Unable to sign out.');
+      setAuthError(formatUserFacingError(error, 'Unable to sign out.'));
     }
   }
 

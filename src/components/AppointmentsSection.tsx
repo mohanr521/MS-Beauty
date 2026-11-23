@@ -10,6 +10,7 @@ import {
   formatTimeLabel,
   getBookableDates,
 } from '../utils/bookingRules.ts';
+import { formatUserFacingError } from '../utils/firestoreErrors.ts';
 import {
   cancelFirestoreAppointment,
   rescheduleFirestoreAppointment,
@@ -85,7 +86,7 @@ export function AppointmentsSection({
             setLoading(false);
           },
           (err) => {
-            setLoadError(err.message);
+            setLoadError(formatUserFacingError(err, 'Unable to load studio bookings right now.'));
             setLoading(false);
           }
         )
@@ -96,7 +97,7 @@ export function AppointmentsSection({
             setLoading(false);
           },
           (err) => {
-            setLoadError(err.message);
+            setLoadError(formatUserFacingError(err, 'Unable to load your bookings right now.'));
             setLoading(false);
           }
         );
@@ -104,22 +105,25 @@ export function AppointmentsSection({
     return () => unsubscribe();
   }, [authReady, user, isAdmin, viewMode]);
 
+  const rescheduleTarget = useMemo(
+    () => (rescheduleRef ? appointments.find((a) => a.bookingRef === rescheduleRef) : undefined),
+    [appointments, rescheduleRef]
+  );
+  const rescheduleSpecialistDocId = rescheduleTarget
+    ? rescheduleTarget.specialistDocId ?? `specialist-${rescheduleTarget.specialistId}`
+    : '';
+
   // Load live booked times when rescheduling a specific booking
   useEffect(() => {
-    if (!rescheduleRef || !rescheduleDate) {
-      return;
-    }
-    const target = appointments.find((a) => a.bookingRef === rescheduleRef);
-    if (!target) {
+    if (!rescheduleRef || !rescheduleDate || !rescheduleSpecialistDocId) {
       return;
     }
 
-    const specialistDocId = target.specialistDocId ?? `specialist-${target.specialistId}`;
     setRescheduleLoadingSlots(true);
 
     const unsubscribe = subscribeBookedTimes(
       rescheduleDate,
-      specialistDocId,
+      rescheduleSpecialistDocId,
       (times) => {
         setRescheduleBookedTimes(times);
         setRescheduleLoadingSlots(false);
@@ -131,7 +135,7 @@ export function AppointmentsSection({
     );
 
     return () => unsubscribe();
-  }, [rescheduleRef, rescheduleDate, appointments]);
+  }, [rescheduleRef, rescheduleDate, rescheduleSpecialistDocId]);
 
   const rescheduleSlots: SlotAvailability[] = useMemo(() => {
     if (!rescheduleDate) {
@@ -209,7 +213,7 @@ export function AppointmentsSection({
       });
       setRescheduleRef(null);
     } catch (err: unknown) {
-      setActionError(err instanceof Error ? err.message : 'Reschedule failed.');
+      setActionError(formatUserFacingError(err, 'Reschedule failed.'));
     } finally {
       setActionBusy(false);
     }
@@ -222,7 +226,7 @@ export function AppointmentsSection({
       await cancelFirestoreAppointment(appt);
       setCancelRef(null);
     } catch (err: unknown) {
-      setActionError(err instanceof Error ? err.message : 'Cancellation failed.');
+      setActionError(formatUserFacingError(err, 'Cancellation failed.'));
     } finally {
       setActionBusy(false);
     }
@@ -234,7 +238,7 @@ export function AppointmentsSection({
     try {
       await updateAppointmentStatusByAdmin(appt, 'completed');
     } catch (err: unknown) {
-      setActionError(err instanceof Error ? err.message : 'Status update failed.');
+      setActionError(formatUserFacingError(err, 'Status update failed.'));
     } finally {
       setActionBusy(false);
     }
@@ -377,7 +381,7 @@ export function AppointmentsSection({
             ) : loadError ? (
               <div className="rounded-xl border border-[#E5E1DA] bg-white p-8">
                 <p role="alert" className="text-sm font-medium text-[#9B1C1C]">
-                  Unable to load bookings right now.
+                  {loadError}
                 </p>
               </div>
             ) : filteredAppointments.length === 0 ? (
