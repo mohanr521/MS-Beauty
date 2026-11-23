@@ -1,0 +1,361 @@
+{
+  "entities": {
+    "Service": {
+      "title": "Service",
+      "description": "A curated beauty parlour treatment offered by MS Cosmetics.",
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "integer",
+          "description": "Numeric service identifier."
+        },
+        "slug": {
+          "type": "string",
+          "minLength": 2,
+          "maxLength": 100,
+          "pattern": "^[a-z0-9-]+$",
+          "description": "URL-safe slug for the service."
+        },
+        "name": {
+          "type": "string",
+          "minLength": 2,
+          "maxLength": 120,
+          "description": "Display name of the treatment."
+        },
+        "category": {
+          "type": "string",
+          "enum": ["Facial & Skin", "Bridal & Makeup", "Hair & Scalp", "Nail & Spa"],
+          "description": "Treatment category."
+        },
+        "durationMinutes": {
+          "type": "integer",
+          "description": "Session duration in minutes."
+        },
+        "priceUsd": {
+          "type": "integer",
+          "description": "Treatment price in USD."
+        },
+        "shortDescription": {
+          "type": "string",
+          "minLength": 5,
+          "maxLength": 280,
+          "description": "Concise card summary."
+        },
+        "fullDescription": {
+          "type": "string",
+          "minLength": 10,
+          "maxLength": 1200,
+          "description": "Detailed treatment overview."
+        },
+        "ritualSteps": {
+          "type": "array",
+          "description": "Ordered steps in the treatment ritual."
+        },
+        "botanicals": {
+          "type": "array",
+          "description": "Key botanical ingredients used."
+        },
+        "imageUrl": {
+          "type": "string",
+          "minLength": 5,
+          "maxLength": 300,
+          "description": "Relative asset path for service photography."
+        },
+        "featured": {
+          "type": "boolean",
+          "description": "Whether the service is featured."
+        }
+      },
+      "required": [
+        "id",
+        "slug",
+        "name",
+        "category",
+        "durationMinutes",
+        "priceUsd",
+        "shortDescription",
+        "fullDescription",
+        "ritualSteps",
+        "botanicals",
+        "imageUrl",
+        "featured"
+      ]
+    },
+    "Specialist": {
+      "title": "Specialist",
+      "description": "A senior aesthetician, stylist, or makeup artist at MS Cosmetics.",
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "integer",
+          "description": "Numeric specialist identifier."
+        },
+        "name": {
+          "type": "string",
+          "minLength": 2,
+          "maxLength": 80,
+          "description": "Specialist full name."
+        },
+        "role": {
+          "type": "string",
+          "minLength": 2,
+          "maxLength": 100,
+          "description": "Studio title."
+        },
+        "specialty": {
+          "type": "string",
+          "enum": ["Facial & Skin", "Bridal & Makeup", "Hair & Scalp", "Nail & Spa"],
+          "description": "Primary treatment category."
+        },
+        "experienceYears": {
+          "type": "integer",
+          "description": "Years of professional experience."
+        },
+        "bio": {
+          "type": "string",
+          "minLength": 10,
+          "maxLength": 500,
+          "description": "Short biography."
+        }
+      },
+      "required": ["id", "name", "role", "specialty", "experienceYears", "bio"]
+    },
+    "Appointment": {
+      "title": "Appointment",
+      "description": "Client reservation stored privately under the authenticated user and readable by studio admins.",
+      "type": "object",
+      "properties": {
+        "userId": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$",
+          "description": "Firebase Auth UID of the client who created the appointment."
+        },
+        "bookingRef": {
+          "type": "string",
+          "minLength": 6,
+          "maxLength": 20,
+          "pattern": "^MSC-[A-Z0-9]{4,10}$",
+          "description": "Human-readable booking confirmation reference."
+        },
+        "serviceId": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 100,
+          "pattern": "^[a-zA-Z0-9_\\-]+$",
+          "description": "Document ID of the booked service in /services."
+        },
+        "serviceNumericId": {
+          "type": "integer",
+          "description": "Numeric ID of the booked service."
+        },
+        "serviceName": {
+          "type": "string",
+          "minLength": 2,
+          "maxLength": 120,
+          "description": "Snapshot of the booked service name."
+        },
+        "serviceCategory": {
+          "type": "string",
+          "enum": ["Facial & Skin", "Bridal & Makeup", "Hair & Scalp", "Nail & Spa"],
+          "description": "Category of the booked service."
+        },
+        "durationMinutes": {
+          "type": "integer",
+          "description": "Booked duration in minutes."
+        },
+        "priceUsd": {
+          "type": "integer",
+          "description": "Booked price in USD."
+        },
+        "specialistId": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 100,
+          "pattern": "^[a-zA-Z0-9_\\-]+$",
+          "description": "Document ID of the assigned specialist in /specialists."
+        },
+        "specialistNumericId": {
+          "type": "integer",
+          "description": "Numeric ID of the assigned specialist."
+        },
+        "specialistName": {
+          "type": "string",
+          "minLength": 2,
+          "maxLength": 80,
+          "description": "Snapshot of the specialist name."
+        },
+        "specialistRole": {
+          "type": "string",
+          "minLength": 2,
+          "maxLength": 100,
+          "description": "Snapshot of the specialist role."
+        },
+        "clientName": {
+          "type": "string",
+          "minLength": 2,
+          "maxLength": 80,
+          "description": "Client full name."
+        },
+        "clientEmail": {
+          "type": "string",
+          "format": "email",
+          "minLength": 5,
+          "maxLength": 120,
+          "description": "Client contact email."
+        },
+        "clientPhone": {
+          "type": "string",
+          "minLength": 7,
+          "maxLength": 30,
+          "description": "Client phone number."
+        },
+        "appointmentDate": {
+          "type": "string",
+          "minLength": 10,
+          "maxLength": 10,
+          "pattern": "^\\d{4}-\\d{2}-\\d{2}$",
+          "description": "Appointment date in YYYY-MM-DD format."
+        },
+        "appointmentTime": {
+          "type": "string",
+          "minLength": 5,
+          "maxLength": 5,
+          "pattern": "^\\d{2}:\\d{2}$",
+          "description": "Studio slot start time in HH:MM 24-hour format."
+        },
+        "notes": {
+          "type": "string",
+          "minLength": 0,
+          "maxLength": 400,
+          "description": "Optional skin sensitivity or styling notes."
+        },
+        "status": {
+          "type": "string",
+          "enum": ["confirmed", "completed", "cancelled"],
+          "description": "Lifecycle status of the appointment."
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Server timestamp of creation."
+        },
+        "updatedAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Server timestamp of last update."
+        }
+      },
+      "required": [
+        "userId",
+        "bookingRef",
+        "serviceId",
+        "serviceNumericId",
+        "serviceName",
+        "serviceCategory",
+        "durationMinutes",
+        "priceUsd",
+        "specialistId",
+        "specialistNumericId",
+        "specialistName",
+        "specialistRole",
+        "clientName",
+        "clientEmail",
+        "clientPhone",
+        "appointmentDate",
+        "appointmentTime",
+        "notes",
+        "status",
+        "createdAt",
+        "updatedAt"
+      ]
+    },
+    "BookedSlot": {
+      "title": "BookedSlot",
+      "description": "PII-free availability lock document keyed by specialist, date, and time.",
+      "type": "object",
+      "properties": {
+        "specialistId": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 100,
+          "pattern": "^[a-zA-Z0-9_\\-]+$",
+          "description": "Document ID of the specialist."
+        },
+        "specialistNumericId": {
+          "type": "integer",
+          "description": "Numeric ID of the specialist."
+        },
+        "appointmentDate": {
+          "type": "string",
+          "minLength": 10,
+          "maxLength": 10,
+          "pattern": "^\\d{4}-\\d{2}-\\d{2}$",
+          "description": "Date of the booked slot."
+        },
+        "appointmentTime": {
+          "type": "string",
+          "minLength": 5,
+          "maxLength": 5,
+          "pattern": "^\\d{2}:\\d{2}$",
+          "description": "Time of the booked slot."
+        },
+        "appointmentId": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$",
+          "description": "ID of the linked appointment document."
+        },
+        "bookedByUid": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$",
+          "description": "UID of the user holding the slot."
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Server timestamp of lock creation."
+        }
+      },
+      "required": [
+        "specialistId",
+        "specialistNumericId",
+        "appointmentDate",
+        "appointmentTime",
+        "appointmentId",
+        "bookedByUid",
+        "createdAt"
+      ]
+    }
+  },
+  "firestore": {
+    "/services/{serviceId}": {
+      "schema": {
+        "$ref": "#/entities/Service"
+      },
+      "description": "Publicly readable beauty treatment catalog managed by studio admins."
+    },
+    "/specialists/{specialistId}": {
+      "schema": {
+        "$ref": "#/entities/Specialist"
+      },
+      "description": "Publicly readable roster of MS Cosmetics master specialists managed by studio admins."
+    },
+    "/appointments/{appointmentId}": {
+      "schema": {
+        "$ref": "#/entities/Appointment"
+      },
+      "description": "Client appointment bookings containing PII, accessible only to the owning user and studio admins."
+    },
+    "/booked_slots/{slotId}": {
+      "schema": {
+        "$ref": "#/entities/BookedSlot"
+      },
+      "description": "Publicly readable, PII-free slot reservation locks preventing double-booking."
+    }
+  }
+}

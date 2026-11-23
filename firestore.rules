@@ -1,0 +1,258 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // Global default-deny safety net
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    // Core primitives
+    function isValidId(id) {
+      return id is string && id.size() >= 1 && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
+    }
+
+    function incoming() {
+      return request.resource.data;
+    }
+
+    function existing() {
+      return resource.data;
+    }
+
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isVerifiedUser() {
+      return isSignedIn() && request.auth.token.email_verified == true;
+    }
+
+    function isBootstrapAdmin() {
+      return isVerifiedUser() && request.auth.token.email == 'mohanrmohan717@gmail.com';
+    }
+
+    function isAdmin() {
+      return isBootstrapAdmin() || (
+        isVerifiedUser() && exists(/databases/$(database)/documents/admins/$(request.auth.uid))
+      );
+    }
+
+    function isValidCategory(cat) {
+      return cat in ['Facial & Skin', 'Bridal & Makeup', 'Hair & Scalp', 'Nail & Spa'];
+    }
+
+    function slotKey(data) {
+      return data.specialistId + '_' + data.appointmentDate + '_' + data.appointmentTime[0:2] + data.appointmentTime[3:5];
+    }
+
+    function isValidService(data) {
+      return data.keys().hasAll([
+        'id', 'slug', 'name', 'category', 'durationMinutes', 'priceUsd',
+        'shortDescription', 'fullDescription', 'ritualSteps', 'botanicals',
+        'imageUrl', 'featured'
+      ]) &&
+      data.keys().hasOnly([
+        'id', 'slug', 'name', 'category', 'durationMinutes', 'priceUsd',
+        'shortDescription', 'fullDescription', 'ritualSteps', 'botanicals',
+        'imageUrl', 'featured'
+      ]) &&
+      data.id is int && data.id > 0 &&
+      data.slug is string && data.slug.size() >= 2 && data.slug.size() <= 100 && data.slug.matches('^[a-z0-9-]+$') &&
+      data.name is string && data.name.size() >= 2 && data.name.size() <= 120 &&
+      isValidCategory(data.category) &&
+      data.durationMinutes is int && data.durationMinutes > 0 && data.durationMinutes <= 480 &&
+      data.priceUsd is int && data.priceUsd > 0 && data.priceUsd <= 10000 &&
+      data.shortDescription is string && data.shortDescription.size() >= 5 && data.shortDescription.size() <= 280 &&
+      data.fullDescription is string && data.fullDescription.size() >= 10 && data.fullDescription.size() <= 1200 &&
+      data.ritualSteps is list && data.ritualSteps.size() > 0 && data.ritualSteps.size() <= 12 &&
+      data.ritualSteps[0] is string && data.ritualSteps[0].size() <= 200 &&
+      data.botanicals is list && data.botanicals.size() > 0 && data.botanicals.size() <= 10 &&
+      data.botanicals[0] is string && data.botanicals[0].size() <= 80 &&
+      data.imageUrl is string && data.imageUrl.size() >= 5 && data.imageUrl.size() <= 300 &&
+      data.featured is bool;
+    }
+
+    function isValidSpecialist(data) {
+      return data.keys().hasAll(['id', 'name', 'role', 'specialty', 'experienceYears', 'bio']) &&
+      data.keys().hasOnly(['id', 'name', 'role', 'specialty', 'experienceYears', 'bio']) &&
+      data.id is int && data.id > 0 &&
+      data.name is string && data.name.size() >= 2 && data.name.size() <= 80 &&
+      data.role is string && data.role.size() >= 2 && data.role.size() <= 100 &&
+      isValidCategory(data.specialty) &&
+      data.experienceYears is int && data.experienceYears >= 0 && data.experienceYears <= 80 &&
+      data.bio is string && data.bio.size() >= 10 && data.bio.size() <= 500;
+    }
+
+    function isValidAppointment(data) {
+      return data.keys().hasAll([
+        'userId', 'bookingRef', 'serviceId', 'serviceNumericId', 'serviceName',
+        'serviceCategory', 'durationMinutes', 'priceUsd', 'specialistId',
+        'specialistNumericId', 'specialistName', 'specialistRole', 'clientName',
+        'clientEmail', 'clientPhone', 'appointmentDate', 'appointmentTime',
+        'notes', 'status', 'createdAt', 'updatedAt'
+      ]) &&
+      data.keys().hasOnly([
+        'userId', 'bookingRef', 'serviceId', 'serviceNumericId', 'serviceName',
+        'serviceCategory', 'durationMinutes', 'priceUsd', 'specialistId',
+        'specialistNumericId', 'specialistName', 'specialistRole', 'clientName',
+        'clientEmail', 'clientPhone', 'appointmentDate', 'appointmentTime',
+        'notes', 'status', 'createdAt', 'updatedAt'
+      ]) &&
+      isValidId(data.userId) &&
+      data.bookingRef is string && data.bookingRef.size() >= 6 && data.bookingRef.size() <= 20 &&
+      data.bookingRef.matches('^MSC-[A-Z0-9]{4,10}$') &&
+      isValidId(data.serviceId) &&
+      data.serviceNumericId is int && data.serviceNumericId > 0 &&
+      data.serviceName is string && data.serviceName.size() >= 2 && data.serviceName.size() <= 120 &&
+      isValidCategory(data.serviceCategory) &&
+      data.durationMinutes is int && data.durationMinutes > 0 && data.durationMinutes <= 480 &&
+      data.priceUsd is int && data.priceUsd > 0 && data.priceUsd <= 10000 &&
+      isValidId(data.specialistId) &&
+      data.specialistNumericId is int && data.specialistNumericId > 0 &&
+      data.specialistName is string && data.specialistName.size() >= 2 && data.specialistName.size() <= 80 &&
+      data.specialistRole is string && data.specialistRole.size() >= 2 && data.specialistRole.size() <= 100 &&
+      data.clientName is string && data.clientName.size() >= 2 && data.clientName.size() <= 80 &&
+      data.clientEmail is string && data.clientEmail.size() >= 5 && data.clientEmail.size() <= 120 &&
+      data.clientPhone is string && data.clientPhone.size() >= 7 && data.clientPhone.size() <= 30 &&
+      data.appointmentDate is string && data.appointmentDate.size() == 10 &&
+      data.appointmentDate.matches('^\\d{4}-\\d{2}-\\d{2}$') &&
+      data.appointmentTime is string && data.appointmentTime.size() == 5 &&
+      data.appointmentTime.matches('^\\d{2}:\\d{2}$') &&
+      data.notes is string && data.notes.size() <= 400 &&
+      data.status in ['confirmed', 'completed', 'cancelled'] &&
+      data.createdAt is timestamp &&
+      data.updatedAt is timestamp;
+    }
+
+    function isValidBookedSlot(data) {
+      return data.keys().hasAll([
+        'specialistId', 'specialistNumericId', 'appointmentDate',
+        'appointmentTime', 'appointmentId', 'bookedByUid', 'createdAt'
+      ]) &&
+      data.keys().hasOnly([
+        'specialistId', 'specialistNumericId', 'appointmentDate',
+        'appointmentTime', 'appointmentId', 'bookedByUid', 'createdAt'
+      ]) &&
+      isValidId(data.specialistId) &&
+      data.specialistNumericId is int && data.specialistNumericId > 0 &&
+      data.appointmentDate is string && data.appointmentDate.size() == 10 &&
+      data.appointmentDate.matches('^\\d{4}-\\d{2}-\\d{2}$') &&
+      data.appointmentTime is string && data.appointmentTime.size() == 5 &&
+      data.appointmentTime.matches('^\\d{2}:\\d{2}$') &&
+      isValidId(data.appointmentId) &&
+      isValidId(data.bookedByUid) &&
+      data.createdAt is timestamp;
+    }
+
+    // Connection health check path
+    match /test/connection {
+      allow get: if true;
+    }
+
+    // Trusted admin lookup documents
+    match /admins/{adminId} {
+      allow get: if isSignedIn() && isValidId(adminId) && request.auth.uid == adminId;
+      allow list, create, update, delete: if false;
+    }
+
+    // Public non-PII catalog: Services
+    match /services/{serviceId} {
+      allow list: if true;
+      allow get: if isValidId(serviceId);
+      allow create: if isAdmin() && isValidId(serviceId) && isValidService(incoming());
+      allow update: if isAdmin() && isValidId(serviceId) && isValidService(incoming());
+      allow delete: if isAdmin() && isValidId(serviceId);
+    }
+
+    // Public non-PII catalog: Specialists
+    match /specialists/{specialistId} {
+      allow list: if true;
+      allow get: if isValidId(specialistId);
+      allow create: if isAdmin() && isValidId(specialistId) && isValidSpecialist(incoming());
+      allow update: if isAdmin() && isValidId(specialistId) && isValidSpecialist(incoming());
+      allow delete: if isAdmin() && isValidId(specialistId);
+    }
+
+    // Private PII appointments: restricted strictly to owner or admin
+    match /appointments/{appointmentId} {
+      allow get: if isVerifiedUser() && isValidId(appointmentId) && (
+        existing().userId == request.auth.uid || isAdmin()
+      );
+      allow list: if isVerifiedUser() && (
+        existing().userId == request.auth.uid || isBootstrapAdmin()
+      );
+      allow create: if isVerifiedUser() &&
+        isValidId(appointmentId) &&
+        isValidAppointment(incoming()) &&
+        incoming().userId == request.auth.uid &&
+        incoming().status == 'confirmed' &&
+        incoming().createdAt == request.time &&
+        incoming().updatedAt == request.time &&
+        exists(/databases/$(database)/documents/services/$(incoming().serviceId)) &&
+        exists(/databases/$(database)/documents/specialists/$(incoming().specialistId)) &&
+        existsAfter(/databases/$(database)/documents/booked_slots/$(slotKey(incoming())));
+
+      allow update: if isVerifiedUser() &&
+        isValidId(appointmentId) &&
+        isValidAppointment(incoming()) &&
+        incoming().userId == existing().userId &&
+        incoming().bookingRef == existing().bookingRef &&
+        incoming().serviceId == existing().serviceId &&
+        incoming().serviceNumericId == existing().serviceNumericId &&
+        incoming().serviceName == existing().serviceName &&
+        incoming().serviceCategory == existing().serviceCategory &&
+        incoming().durationMinutes == existing().durationMinutes &&
+        incoming().priceUsd == existing().priceUsd &&
+        incoming().clientName == existing().clientName &&
+        incoming().clientEmail == existing().clientEmail &&
+        incoming().clientPhone == existing().clientPhone &&
+        incoming().createdAt == existing().createdAt &&
+        incoming().updatedAt == request.time &&
+        (
+          (
+            isAdmin() &&
+            incoming().diff(existing()).affectedKeys().hasOnly(['status', 'updatedAt']) &&
+            incoming().status in ['confirmed', 'completed', 'cancelled']
+          ) ||
+          (
+            existing().userId == request.auth.uid &&
+            existing().status == 'confirmed' &&
+            incoming().status == 'confirmed' &&
+            incoming().diff(existing()).affectedKeys().hasOnly([
+              'appointmentDate', 'appointmentTime', 'specialistId',
+              'specialistNumericId', 'specialistName', 'specialistRole',
+              'notes', 'updatedAt'
+            ]) &&
+            exists(/databases/$(database)/documents/specialists/$(incoming().specialistId)) &&
+            existsAfter(/databases/$(database)/documents/booked_slots/$(slotKey(incoming())))
+          ) ||
+          (
+            existing().userId == request.auth.uid &&
+            existing().status == 'confirmed' &&
+            incoming().status == 'cancelled' &&
+            incoming().diff(existing()).affectedKeys().hasOnly(['status', 'updatedAt'])
+          )
+        );
+
+      allow delete: if false;
+    }
+
+    // Public PII-free slot availability locks
+    match /booked_slots/{slotId} {
+      allow list: if true;
+      allow get: if isValidId(slotId);
+      allow create: if isVerifiedUser() &&
+        isValidId(slotId) &&
+        isValidBookedSlot(incoming()) &&
+        incoming().bookedByUid == request.auth.uid &&
+        incoming().createdAt == request.time &&
+        slotId == slotKey(incoming()) &&
+        existsAfter(/databases/$(database)/documents/appointments/$(incoming().appointmentId));
+      allow update: if false;
+      allow delete: if isVerifiedUser() && isValidId(slotId) && (
+        existing().bookedByUid == request.auth.uid || isAdmin()
+      );
+    }
+  }
+}

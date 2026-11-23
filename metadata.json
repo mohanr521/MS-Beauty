@@ -1,0 +1,6 @@
+{
+  "name": "MS Cosmetics",
+  "description": "Luxury beauty parlour featuring a curated gallery of skincare, bridal, hair, and spa services with real-time online appointment booking.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
